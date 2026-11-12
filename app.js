@@ -1193,6 +1193,10 @@
 
     buildDots();
     observe();
+
+    /* land on the “You ate N meals” hero as soon as the recap is ready */
+    var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    window.scrollTo({ top: 0, behavior: reduce ? 'auto' : 'smooth' });
   }
 
   function trend(H) {
@@ -1573,74 +1577,6 @@ function renderFlow(st) {
     });
   }
 
-  /* deterministic demo data so the page is playable with no file at hand */
-  function demoSwipes() {
-    var seed = 987654321;
-    function rnd() {
-      seed |= 0; seed = (seed + 0x6D2B79F5) | 0;
-      var t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
-      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-    }
-    function pick(items, weights) {
-      var total = weights.reduce(function (a, b) { return a + b; }, 0), r = rnd() * total;
-      for (var i = 0; i < items.length; i++) { r -= weights[i]; if (r <= 0) return items[i]; }
-      return items[items.length - 1];
-    }
-    var halls = ['Andrews', "Jo's", 'Ivy Room', 'The Ratty', 'VDub'];
-    var hours = {
-      'Andrews': [[11, 5], [12, 13], [13, 14], [14, 9], [15, 5], [16, 5], [17, 8], [18, 9], [19, 6], [20, 3]],
-      "Jo's": [[11, 2], [12, 5], [13, 7], [14, 6], [15, 5], [16, 6], [17, 6], [18, 7], [19, 6], [20, 5], [21, 5], [22, 4], [23, 3], [0, 3], [1, 2]],
-      'Ivy Room': [[12, 5], [13, 8], [14, 7], [15, 5], [16, 5], [17, 6], [18, 5], [19, 4], [20, 3], [21, 3], [22, 2], [23, 2]],
-      'The Ratty': [[11, 5], [12, 11], [13, 11], [14, 8], [15, 4], [16, 3], [17, 5], [18, 5], [19, 3]],
-      'VDub': [[12, 7], [13, 10], [14, 8], [15, 5], [16, 3], [17, 5], [18, 4], [19, 3]]
-    };
-    var out = [], now = new Date(), end = new Date(now.getFullYear(), now.getMonth(), 28);
-    end.setHours(12, 0, 0, 0);
-    var start = new Date(end.getFullYear(), end.getMonth() - 10, 1);
-    var perDay = [3, 3, 3, 2, 3, 2, 2];
-    for (var d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-      var progress = (d - start) / (end - start);
-      var mix = [0.60 - 0.44 * progress, 0.10 + 0.42 * progress, 0.11, 0.11, 0.08];
-      var n = Math.max(0, Math.round(perDay[d.getDay()] + (rnd() - 0.5) * 1.6));
-      if (rnd() < 0.07) n = 0;
-      for (var i = 0; i < n; i++) {
-        var hall = pick(halls, mix);
-        var table = hours[hall].map(function (p) { return p[0]; });
-        var weights = hours[hall].map(function (p) {
-          var w = p[1];
-          if (d.getDay() >= 5 && p[0] <= 14) w *= 0.5;
-          if (hall === "Jo's" && (p[0] >= 21 || p[0] <= 1) && progress > 0.6) w *= 2;
-          return w;
-        });
-        var hr = pick(table, weights);
-        var t = new Date(d.getFullYear(), d.getMonth(), d.getDate(), hr, Math.floor(rnd() * 60));
-        var suffix = hall === 'Andrews' ? (rnd() < .4 ? 1 : 2) : hall === 'The Ratty' ? (rnd() < .3 ? 2 : 5) : hall === 'VDub' ? 3 : 2;
-        out.push({
-          t: t, hall: hall,
-          points: rnd() < 0.05 ? 2 : 1,
-          raw: t.toISOString() + '|' + hall + ' ' + suffix
-        });
-      }
-    }
-    return out;
-  }
-
-  /* 20 weekly meals, refreshed Monday 3am — mirrors the real statement's resets */
-  function demoCredits(swipes) {
-    var out = [], seen = {};
-    swipes.forEach(function (s) {
-      var wk = weekKey(s.t);
-      if (seen[wk]) return;
-      seen[wk] = 1;
-      var reset = new Date(s.t);
-      reset.setDate(reset.getDate() - reset.getDay());
-      reset.setHours(3, 0, 0, 0);
-      out.push({ t: reset, amount: 20, label: 'Automated Reset' });
-    });
-    return out;
-  }
-
   /* ─────────────────────────── wire up ─────────────────────────── */
 
   var drop = $('#drop'), fileInput = $('#fileInput');
@@ -1662,41 +1598,6 @@ function renderFlow(st) {
   });
   window.addEventListener('dragover', function (e) { e.preventDefault(); });
   window.addEventListener('drop', function (e) { e.preventDefault(); });
-
-  $('#demoBtn').addEventListener('click', function () {
-    msg('Building a demo year…');
-    var swipes = demoSwipes();
-    setTimeout(function () {
-      render(buildStats(swipes, demoCredits(swipes)), [{ name: 'demo' }]);
-      msg('Demo data — drop a real CSV to replace it.', 'ok');
-    }, 30);
-  });
-
-  $('#sampleBtn').addEventListener('click', function () {
-    var names = [
-      '20 Weekly Meals_statement_2026-03-01_to_2026-09-31.csv',
-      '20 Weekly Meals_statement_2026-09-30_to_2027-02-28.csv'
-    ];
-    msg('Loading the statements from this folder…');
-    Promise.all(names.map(function (n) {
-      return fetch(encodeURIComponent(n)).then(function (r) {
-        if (!r.ok) throw new Error('bad response');
-        return r.text();
-      });
-    })).then(function (texts) {
-      var sets = texts.map(function (t, i) {
-        var r = extractSwipes(parseDelimited(t));
-        return { swipes: r.swipes, credits: r.credits, name: names[i] };
-      }).filter(function (s) { return s.swipes.length; });
-      if (!sets.length) throw new Error('empty');
-      var swipes = mergeSets(sets);
-      var credits = sets.reduce(function (a, s) { return a.concat(s.credits); }, []);
-      msg('Parsed ' + plural(swipes.length, 'swipe') + ' from the folder CSVs.', 'ok');
-      render(buildStats(swipes, credits), sets);
-    }).catch(function () {
-      msg('Could not read the folder from here — browsers block file access. Drop the two CSVs in instead.', 'err');
-    });
-  });
 
   $('#flowToggle').addEventListener('click', function (e) {
     var b = e.target.closest('button');

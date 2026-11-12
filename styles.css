@@ -77,6 +77,8 @@ body {
 .tiny { color: #6f6b82; font-size: .78rem; margin-top: 2rem; }
 
 /* ── layout ──────────────────────────────────────────────────── */
+[hidden] { display: none !important; }
+
 .screen {
   min-height: 100svh; display: grid; align-items: center;
   padding: clamp(4.5rem, 12vh, 8rem) clamp(1.1rem, 5vw, 3rem);
