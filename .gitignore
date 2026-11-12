@@ -1,0 +1,5 @@
+.DS_Store
+Thumbs.db
+
+# Private meal-plan statements
+*Meals_statement*.csv

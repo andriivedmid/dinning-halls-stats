@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Dining Wrapped — your meal plan, wrapped</title>
+<meta name="description" content="Drop in your dining plan statement and get a Spotify-Wrapped-style recap of where you ate, when, and how your hall habits changed month to month.">
+<link rel="stylesheet" href="styles.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🍽️</text></svg>">
+</head>
+<body>
+
+<div class="bg" aria-hidden="true">
+  <span class="blob b1"></span>
+  <span class="blob b2"></span>
+  <span class="blob b3"></span>
+  <span class="grain"></span>
+</div>
+
+<!-- ─────────────────────────── UPLOAD ─────────────────────────── -->
+<section class="screen intro" id="intro">
+  <div class="wrap">
+    <p class="kicker">Brown · 20 Weekly Meals</p>
+    <h1 class="mega">DINING<span class="grad">WRAPPED</span></h1>
+    <p class="lede">Drop in your meal-plan statement CSV. You get the year in halls: where you ate the most,
+      <em>when</em> you ate, and how your taste drifted from month to month. Everything runs in this tab —
+      nothing is uploaded anywhere.</p>
+
+    <div class="drop" id="drop" tabindex="0" role="button" aria-label="Choose or drop statement CSV files">
+      <input type="file" id="fileInput" accept=".csv,.txt,text/csv" multiple hidden>
+      <svg viewBox="0 0 24 24" class="drop-ico" aria-hidden="true"><path d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg>
+      <p class="drop-t">Drop your statement here</p>
+      <p class="drop-s">or <span class="lnk">browse files</span> · multiple statements get merged</p>
+    </div>
+
+    <div class="intro-row">
+      <button class="btn ghost" id="demoBtn" type="button">Try it with demo data</button>
+      <button class="btn ghost sm" id="sampleBtn" type="button">Use the CSVs in this folder</button>
+    </div>
+    <p class="hint" id="loadMsg" role="status" aria-live="polite"></p>
+
+    <details class="how">
+      <summary>Where do I get the file?</summary>
+      <ol class="steps">
+        <li>Go to <a href="https://mycard.brown.edu" target="_blank" rel="noopener">20 Weekly Meals</a>
+          and press <b>View More</b>.</li>
+        <li>Select <b>View Statement</b>.</li>
+        <li>Download the <b>CSV</b>.</li>
+      </ol>
+      <p>A statement only covers one term, so grab each one you have and drop them all in together —
+        they get merged into a single year.</p>
+    </details>
+
+    <details class="how">
+      <summary>What does it read?</summary>
+      <p>A CSV with a <code>Date</code>, <code>Description</code>, <code>Amount</code> column — the export from
+      the dining plan page. Credits (<code>Automated Reset</code>, <code>Deposit</code>) are skipped; every negative
+      amount is a swipe, and the hall comes from the description. <code>Balance</code> is used to work out your
+      weekly allowance: it settles on the same number after every reset, which is a truer read on what you were
+      given than summing the top-up amounts.</p>
+    </details>
+  </div>
+</section>
+
+<!-- ─────────────────────────── REPORT ─────────────────────────── -->
+<main id="report" hidden>
+
+  <nav class="dots" id="dots" aria-label="Sections"></nav>
+
+  <section class="screen" id="s-hero" data-title="Overview">
+    <div class="wrap">
+      <p class="kicker" id="range"></p>
+      <h2 class="mega sm">You ate<br><span class="grad" id="totalSwipes">0</span> meals<br>on plan.</h2>
+      <p class="lede" id="heroLede"></p>
+      <div class="pills" id="heroPills"></div>
+      <div class="scroll-hint" aria-hidden="true">↓</div>
+    </div>
+  </section>
+
+  <section class="screen" id="s-hall" data-title="Your hall">
+    <div class="wrap">
+      <p class="kicker">Your #1 dining hall</p>
+      <h2 class="mega sm" id="topHallName"></h2>
+      <p class="lede" id="topHallLede"></p>
+      <div class="board" id="hallBoard"></div>
+      <p class="caption" id="hallCaption"></p>
+    </div>
+  </section>
+
+  <section class="screen" id="s-when" data-title="When">
+    <div class="wrap">
+      <p class="kicker">When</p>
+      <h2 class="mega sm" id="whenHeadline"></h2>
+      <div class="cards" id="whenCards"></div>
+    </div>
+  </section>
+
+  <section class="screen" id="s-waste" data-title="Swipe waste">
+    <div class="wrap wide">
+      <p class="kicker">The swipe economy</p>
+      <h2 class="mega sm" id="wasteHeadline"></h2>
+      <div class="cards" id="wasteCards"></div>
+      <div class="chart-card" id="perDayCard"></div>
+      <p class="caption" id="wasteCaption"></p>
+      <div class="chart-card" id="costCard"></div>
+      <p class="caption" id="costCaption"></p>
+    </div>
+  </section>
+
+  <section class="screen" id="s-hours" data-title="Hour by hour">
+    <div class="wrap wide">
+      <p class="kicker">Every hour of the day</p>
+      <h2 class="big" id="hoursHeadline"></h2>
+      <div class="chart-card" id="hourChartCard"></div>
+      <div class="split">
+        <div class="chart-card" id="daypartCard"></div>
+        <div class="chart-card" id="dowCard"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="screen" id="s-heat" data-title="Weekly rhythm">
+    <div class="wrap wide">
+      <p class="kicker">Weekly rhythm</p>
+      <h2 class="big" id="heatHeadline"></h2>
+      <div class="chart-card" id="heatCard"></div>
+      <p class="caption" id="heatCaption"></p>
+    </div>
+  </section>
+
+  <section class="screen" id="s-break" data-title="Hall breakdown">
+    <div class="wrap wide">
+      <p class="kicker">Breakdown by hall</p>
+      <h2 class="big" id="breakHeadline"></h2>
+      <div class="break-grid" id="breakGrid"></div>
+    </div>
+  </section>
+
+  <section class="screen" id="s-flow" data-title="Month to month">
+    <div class="wrap wide">
+      <p class="kicker">Month to month</p>
+      <h2 class="big" id="flowHeadline"></h2>
+      <div class="seg" id="flowToggle" role="group" aria-label="Chart mode">
+        <button type="button" data-mode="share" class="on">Share of meals</button>
+        <button type="button" data-mode="count">Swipes per month</button>
+        <button type="button" data-mode="week">Week to week</button>
+      </div>
+      <div class="chart-card" id="flowCard"></div>
+      <div class="shift" id="shiftPanel"></div>
+    </div>
+  </section>
+
+  <section class="screen" id="s-outro" data-title="Your year">
+    <div class="wrap">
+      <p class="kicker">That's a wrap</p>
+      <h2 class="mega sm" id="outroHeadline"></h2>
+      <div class="summary sr-copy" id="summary" aria-hidden="true"></div>
+      <div class="intro-row center">
+        <button class="btn" id="copyBtn" type="button">Copy my recap</button>
+        <button class="btn ghost" id="againBtn" type="button">Start over</button>
+      </div>
+      <p class="tiny">Parsed locally in your browser. No data leaves this device.</p>
+    </div>
+  </section>
+
+</main>
+
+<div class="tip" id="tip" role="tooltip" hidden></div>
+
+<script src="app.js"></script>
+</body>
+</html>

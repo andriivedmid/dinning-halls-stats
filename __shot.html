@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  html, body { margin: 0; background: #07070b; }
+  iframe { border: 0; width: 1400px; height: 1000px; display: block; }
+  #log { position: fixed; inset: 0; background: #07070b; color: #cfc9e2; font: 12px monospace;
+         white-space: pre-wrap; padding: 12px; overflow: auto; z-index: 9; }
+</style>
+</head>
+<body>
+<iframe id="f" src="index.html"></iframe>
+<pre id="log">booting…</pre>
+<script>
+  /* Loads the real index.html in an iframe, drops the folder CSVs, then either
+     scrolls to #<section> for a screenshot or writes a report into #log
+     (top-level, so `chrome --dump-dom` can read it). */
+  var NAMES = [
+    '20 Weekly Meals_statement_2026-03-01_to_2026-09-31.csv',
+    '20 Weekly Meals_statement_2026-09-30_to_2027-02-28.csv'
+  ];
+  var target = location.hash.slice(1);
+  var wantLog = /report/.test(location.search);
+  // ?one=1 loads only the first statement, to check single-file stats
+  if (/one/.test(location.search)) NAMES = NAMES.slice(0, 1);
+  function out(s) { document.getElementById('log').textContent = s; }
+
+  document.getElementById('f').addEventListener('load', function () {
+    var f = document.getElementById('f'), w = f.contentWindow, d = f.contentDocument;
+    var errors = [];
+    w.addEventListener('error', function (e) { errors.push('ERR ' + e.message); });
+    Promise.all(NAMES.map(function (n) {
+      return w.fetch(encodeURIComponent(n)).then(function (r) { return r.text(); })
+        .then(function (t) { return { name: n, text: t }; });
+    })).then(function (texts) {
+      var dt = new w.DataTransfer();
+      texts.forEach(function (t) { dt.items.add(new w.File([t.text], t.name, { type: 'text/csv' })); });
+      var drop = d.getElementById('drop');
+      ['dragenter', 'dragover', 'drop'].forEach(function (ev) {
+        drop.dispatchEvent(new w.DragEvent(ev, { dataTransfer: dt, bubbles: true, cancelable: true }));
+      });
+      var tries = 0;
+      (function poll() {
+        var ready = !d.getElementById('report').hidden &&
+          d.getElementById('totalSwipes').textContent !== '0';
+        if (!ready && tries++ < 300) return setTimeout(poll, 100);
+        if (!ready) { errors.push('never rendered'); }
+        if (wantLog) {
+          setTimeout(function () {
+            var q = function (s) { return d.querySelector(s); };
+            var qa = function (s) { return Array.prototype.slice.call(d.querySelectorAll(s)); };
+            var L = [];
+            L.push('errors: ' + (errors.length ? errors.join(' | ') : 'none'));
+            L.push('dots: ' + q('#dots').children.length);
+            L.push('screens: ' + qa('#report .screen').map(function (n) { return n.id; }).join(','));
+            L.push('waste cards: ' + qa('#wasteCards .card').map(function (c) {
+              return c.querySelector('.k').textContent + '=' + c.querySelector('.v').textContent;
+            }).join(' | '));
+            L.push('per-day bars: ' + qa('#perDayCard rect.bar').length +
+              ' labels: ' + qa('#perDayCard text.axis.mid').map(function (n) { return n.textContent; }).join(','));
+            L.push('per-day values: ' + qa('#perDayCard text.axis.mid').filter(function (n) {
+              return /^\d/.test(n.textContent);
+            }).map(function (n) { return n.textContent; }).join(','));
+            L.push('waste headline: ' + q('#wasteHeadline').textContent);
+            L.push('waste caption: ' + q('#wasteCaption').textContent);
+            L.push('cost cells: ' + qa('#costCard .costcell').map(function (c) {
+              return c.querySelector('.k').textContent + '=' + c.querySelector('.v').textContent;
+            }).join(' | '));
+            L.push('cost bar segs: ' + qa('#costCard svg.costbar rect').length +
+              ' lost=' + qa('#costCard .lost').length + ' labels=' +
+              qa('#costCard svg.costbar text').map(function (n) { return n.textContent; }).join(' / '));
+            L.push('cost caption: ' + q('#costCaption').textContent);
+            var su = q('#summary'), cs = getComputedStyle(su);
+            L.push('summary box: ' + Math.round(su.getBoundingClientRect().height) + 'px tall, clip=' + cs.clipPath);
+            L.push('when: ' + qa('#whenCards .card').slice(-3).map(function (c) {
+              return c.querySelector('.k').textContent + '=' + c.querySelector('.v').textContent;
+            }).join(' | '));
+            L.push('hall names: ' + qa('#hallBoard .nm').map(function (n) { return n.textContent; }).join(','));
+            L.push('legend: ' + qa('#flowCard .leg div').map(function (n) { return n.textContent; }).join(' | '));
+            L.push('report scrollW=' + q('#report').scrollWidth + ' vw=' + d.documentElement.clientWidth);
+            L.push('--- report text ---');
+            L.push(q('#report').innerText);
+            out(L.join('\n'));
+          }, 1600);
+          return;
+        }
+        if (errors.length) out(errors.join('\n'));
+        var sec = d.getElementById(target);
+        if (sec) sec.scrollIntoView();
+        document.getElementById('log').style.display = 'none';
+      })();
+    }).catch(function (e) { out('FAILED: ' + e); });
+  });
+</script>
+</body>
+</html>

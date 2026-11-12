@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>selftest</title>
+<link rel="stylesheet" href="styles.css">
+<style>#out{white-space:pre-wrap;max-width:100%;overflow-wrap:anywhere;font-size:11px}</style>
+</head>
+<body>
+<pre id="out">booting…</pre>
+
+<div class="bg"><span class="blob b1"></span><span class="blob b2"></span></div>
+
+<section class="screen intro" id="intro"><div class="wrap">
+  <p class="kicker">k</p><h1 class="mega">X</h1>
+  <div class="drop" id="drop"><input type="file" id="fileInput" hidden></div>
+  <button class="btn ghost" id="demoBtn" type="button">demo</button>
+  <button class="btn ghost sm" id="sampleBtn" type="button">sample</button>
+  <p class="hint" id="loadMsg"></p>
+  <details class="how" id="howGet"><summary>Where do I get the file?</summary>
+    <ol class="steps"><li>Go to <a href="https://mycard.brown.edu">20 Weekly Meals</a> and press <b>View More</b>.</li>
+    <li>Select <b>View Statement</b>.</li>
+    <li>Download the <b>CSV</b>.</li></ol></details>
+</div></section>
+
+<main id="report" hidden>
+  <nav class="dots" id="dots"></nav>
+  <section class="screen" id="s-hero" data-title="Overview"><div class="wrap">
+    <p class="kicker" id="range"></p><h2 class="mega sm" id="totalSwipes">0</h2>
+    <p class="lede" id="heroLede"></p><div class="pills" id="heroPills"></div>
+  </div></section>
+  <section class="screen" id="s-hall" data-title="Your hall"><div class="wrap">
+    <p class="kicker">k</p><h2 class="mega sm" id="topHallName"></h2>
+    <p class="lede" id="topHallLede"></p><div class="board" id="hallBoard"></div>
+    <p class="caption" id="hallCaption"></p>
+  </div></section>
+  <section class="screen" id="s-when" data-title="When"><div class="wrap">
+    <p class="kicker">k</p><h2 class="mega sm" id="whenHeadline"></h2>
+    <div class="cards" id="whenCards"></div>
+  </div></section>
+  <section class="screen" id="s-waste" data-title="Swipe waste"><div class="wrap wide">
+    <p class="kicker">k</p><h2 class="mega sm" id="wasteHeadline"></h2>
+    <div class="cards" id="wasteCards"></div>
+    <div class="chart-card" id="perDayCard"></div>
+    <p class="caption" id="wasteCaption"></p>
+    <div class="chart-card" id="costCard"></div>
+    <p class="caption" id="costCaption"></p>
+  </div></section>
+  <section class="screen" id="s-hours" data-title="Hours"><div class="wrap wide">
+    <p class="kicker">k</p><h2 class="big" id="hoursHeadline"></h2>
+    <div class="chart-card" id="hourChartCard"></div>
+    <div class="split"><div class="chart-card" id="daypartCard"></div>
+    <div class="chart-card" id="dowCard"></div></div>
+  </div></section>
+  <section class="screen" id="s-heat" data-title="Rhythm"><div class="wrap wide">
+    <p class="kicker">k</p><h2 class="big" id="heatHeadline"></h2>
+    <div class="chart-card" id="heatCard"></div><p class="caption" id="heatCaption"></p>
+  </div></section>
+  <section class="screen" id="s-break" data-title="Breakdown"><div class="wrap wide">
+    <p class="kicker">k</p><h2 class="big" id="breakHeadline"></h2>
+    <div class="break-grid" id="breakGrid"></div>
+  </div></section>
+  <section class="screen" id="s-flow" data-title="Flow"><div class="wrap wide">
+    <p class="kicker">k</p><h2 class="big" id="flowHeadline"></h2>
+    <div class="seg" id="flowToggle"><button type="button" data-mode="share" class="on">s</button>
+    <button type="button" data-mode="count">c</button>
+    <button type="button" data-mode="week">w</button></div>
+    <div class="chart-card" id="flowCard"></div><div class="shift" id="shiftPanel"></div>
+  </div></section>
+  <section class="screen" id="s-outro" data-title="Outro"><div class="wrap">
+    <p class="kicker">k</p><h2 class="mega sm" id="outroHeadline"></h2>
+    <div class="summary sr-copy" id="summary" aria-hidden="true"></div>
+    <div id="outroRow"><button class="btn" id="copyBtn" type="button">c</button>
+    <button class="btn ghost" id="againBtn" type="button">a</button></div>
+  </div></section>
+</main>
+<div class="tip" id="tip" hidden></div>
+
+<script src="app.js"></script>
+<script>
+(function () {
+  var out = document.getElementById('out'), log = [], fails = 0;
+  function flush() { out.textContent = log.join('\n'); }
+  function say(s) { log.push(s); flush(); }
+  function check(name, actual, expected) {
+    var ok = String(actual) === String(expected);
+    if (!ok) fails++;
+    say((ok ? 'PASS  ' : 'FAIL  ') + name + '  → got: ' + actual + (ok ? '' : '  | want: ' + expected));
+  }
+  function ok(name, cond, extra) { if (!cond) fails++; say((cond ? 'PASS  ' : 'FAIL  ') + name + (extra != null ? '  → ' + extra : '')); }
+
+  window.addEventListener('error', function (e) {
+    fails++; say('FAIL  uncaught error: ' + e.message + ' @' + (e.filename || '') + ':' + e.lineno);
+  });
+  window.addEventListener('unhandledrejection', function (e) {
+    fails++; say('FAIL  unhandled rejection: ' + (e.reason && e.reason.message || e.reason));
+  });
+  var realErr = console.error.bind(console);
+  console.error = function () { fails++; say('FAIL  console.error: ' + [].join.call(arguments, ' ')); realErr.apply(null, arguments); };
+
+  function q(sel) { return document.querySelector(sel); }
+  function qa(sel) { return Array.prototype.slice.call(document.querySelectorAll(sel)); }
+  function reportText() { return q('#report').innerText; }
+
+  // poll instead of fixed sleeps: FileReader timing is not deterministic.
+  // bound by iteration count, not wall clock -- headless virtual time jumps.
+  function waitFor(fn, label, tries) {
+    return new Promise(function (res, rej) {
+      var left = tries || 400;
+      (function poll() {
+        var v;
+        try { v = fn(); } catch (err) { v = false; }
+        if (v) return res(v);
+        if (left-- <= 0) return rej(new Error('timeout waiting for ' + label));
+        setTimeout(poll, 25);
+      })();
+    });
+  }
+
+  var CSVS = [
+    '20 Weekly Meals_statement_2026-03-01_to_2026-09-31.csv',
+    '20 Weekly Meals_statement_2026-09-30_to_2027-02-28.csv'
+  ];
+
+  function fetchCSV(name) {
+    return fetch(encodeURIComponent(name)).then(function (r) { return r.text(); })
+      .then(function (t) { return { name: name, text: t }; });
+  }
+  function dropFiles(texts) {
+    var dt = new DataTransfer();
+    texts.forEach(function (t) { dt.items.add(new File([t.text], t.name, { type: 'text/csv' })); });
+    var drop = document.getElementById('drop');
+    ['dragenter', 'dragover', 'drop'].forEach(function (ev) {
+      drop.dispatchEvent(new DragEvent(ev, { dataTransfer: dt, bubbles: true, cancelable: true }));
+    });
+  }
+
+  function phase(label, texts) {
+    return waitFor(function () {
+      return q('#report').hidden === false && q('#loadMsg').textContent.indexOf('Parsed') >= 0;
+    }, label).then(function () {
+      say('=== ' + label + ' :: ' + q('#loadMsg').textContent);
+      return texts;
+    });
+  }
+
+  Promise.all(CSVS.map(fetchCSV))
+    .then(function (texts) {
+      dropFiles(texts);
+      return phase('two merged statements', texts);
+    })
+    .then(function () {
+      ok('report visible', q('#report').hidden === false);
+      ok('intro hidden', q('#intro').hidden === true);
+
+      check('total meals (summary)', /426 meals/.test(q('#summary').textContent), 'true');
+      check('hero pills', q('#heroPills').children.length, '6');
+      check('leaderboard rows', q('#hallBoard').children.length, '5');
+      check('#1 hall', q('#hallBoard').children[0].querySelector('.nm').textContent, 'Andrews');
+      check('#2 hall', q('#hallBoard').children[1].querySelector('.nm').textContent, "Jo's");
+      check('when cards', q('#whenCards').children.length, '8');
+      ok('no NaN in report', reportText().indexOf('NaN') < 0, 'clean');
+      ok('no undefined in report', reportText().indexOf('undefined') < 0, 'clean');
+      ok('no [object in report', reportText().indexOf('[object') < 0, 'clean');
+
+      check('hour bars', qa('#hourChartCard rect.bar').length, '24');
+      ok('hour svg present', !!q('#hourChartCard svg'), 'yes');
+      check('daypart arcs', qa('#daypartCard path').length, '4');
+      check('dow bars', qa('#dowCard rect.hbar').length, '7');
+      check('heatmap cells', qa('#heatCard rect').length, '168');
+      check('hall cards', q('#breakGrid').children.length, '5');
+      check('hall shares', qa('#breakGrid .h-sh').map(function (n) { return n.textContent; }).join(','),
+        '37%,29%,16%,11%,6.9%');
+      check('flow bands', qa('#flowCard path').length, '5');
+      check('flow legend', qa('#flowCard .leg div').length, '5');
+      check('shift rows', q('#shiftPanel').querySelectorAll('.shift-row').length, '6');
+      check('shift bars', qa('#shiftPanel .dual .lane i').length, '10');
+      var lanes = qa('#shiftPanel .dual .lane i');
+      ok('shift bars sized via --w', lanes.every(function (n) {
+        var w = n.style.getPropertyValue('--w');
+        return w && parseFloat(w) > 0 && parseFloat(w) <= 1;
+      }), lanes.map(function (n) { return parseFloat(n.style.getPropertyValue('--w')).toFixed(2); }).join(','));
+      var fills = qa('#hallBoard .fill');
+      ok('leaderboard fills sized via --w', fills.length === 5 && fills.every(function (n) {
+        var w = parseFloat(n.style.getPropertyValue('--w'));
+        return w > 0 && w <= 1;
+      }), fills.map(function (n) { return parseFloat(n.style.getPropertyValue('--w')).toFixed(2); }).join(','));
+      ok('no inline transform killing the reveal', fills.every(function (n) { return !n.style.transform; }) &&
+        lanes.every(function (n) { return !n.style.transform; }), 'clean');
+      ok('range covers both files', /Sep 26/.test(q('#range').textContent) && /Feb 27/.test(q('#range').textContent),
+        q('#range').textContent);
+      ok('peak hour noon', /noon/.test(q('#whenHeadline').textContent), q('#whenHeadline').textContent);
+      ok('no crossover label on the chart', !/takes the lead/.test(q('#flowCard').textContent), 'removed');
+      check('no orphan dashed line in flow svg', qa('#flowCard svg line[stroke-dasharray]').length, '0');
+      ok('crossover still told in shift panel', /walked in and never left/.test(q('#shiftPanel').textContent),
+        'present');
+      ok('flow headline shows change', /Andrews/.test(q('#flowHeadline').textContent) &&
+        /Jo/.test(q('#flowHeadline').textContent), q('#flowHeadline').textContent);
+      ok('summary non-empty', q('#summary').textContent.length > 120, q('#summary').textContent.length + ' chars');
+      check('dots built', q('#dots').children.length, '9');
+
+      say('--- trimmed copy ---');
+      ok('no "hours got used" caption', q('#whenCaption') === null &&
+        !/hours got used/.test(reportText()), 'removed');
+      ok('no late-night caption', !/Late nights exist|creature of daylight/.test(reportText()), 'removed');
+      ok('no dead-hours count in heat caption', !/dead hours/i.test(q('#heatCaption').textContent),
+        q('#heatCaption').textContent);
+      ok('quietest day kept', /\w+ is your quietest day\.$/.test(q('#heatCaption').textContent),
+        q('#heatCaption').textContent);
+      ok('heat caption keeps the empty count', /of 168 weekday-hour squares are empty/.test(q('#heatCaption').textContent),
+        q('#heatCaption').textContent);
+      ok('no "a The Ratty" article bug', !/a The Ratty|an The Ratty/.test(reportText()), 'clean');
+      var nmAll = qa('#breakGrid .h-nm').map(function (n) { return n.textContent; })
+        .concat(qa('#flowCard .leg div').map(function (n) { return n.textContent.split(' ')[0] === 'The' ? 'The Ratty' : ''; }));
+      ok('The Ratty named exactly, everywhere', nmAll.indexOf('The Ratty') >= 0 &&
+        !/\bRatty\b(?!\s*\d)/.test(q('#flowCard .leg').textContent.replace(/The Ratty/g, '')),
+        nmAll.filter(Boolean).join(','));
+
+      say('--- hall renames ---');
+      var names = qa('#hallBoard .nm').map(function (n) { return n.textContent; });
+      check('halls renamed', names.join(','), "Andrews,Jo's,The Ratty,Ivy Room,VDub");
+      var bandColors = qa('#flowCard path[fill]').map(function (p) { return p.getAttribute('fill'); });
+      check('no duplicate band colours', new Set(bandColors).size, bandColors.length);
+      ok('old names gone from report', !/Josiah|Sharpe Pax|VW Pax/.test(reportText()), 'clean');
+
+      say('--- heatmap hover (was always 12pm) ---');
+      var tipEl = document.getElementById('tip');
+      function hoverTip(el, fx, fy) {
+        var r = el.getBoundingClientRect();
+        el.dispatchEvent(new MouseEvent('mousemove', {
+          clientX: r.left + r.width * fx, clientY: r.top + r.height * fy, bubbles: true
+        }));
+        return tipEl.hidden ? '' : tipEl.textContent.replace(/\s+/g, ' ').trim();
+      }
+      var cells = qa('#heatCard svg g');
+      var tips = [0, 24, 48, 72, 120, 167].map(function (i) { return hoverTip(cells[i], .5, .5); });
+      ok('each cell reports its own hour', new Set(tips.map(function (t) {
+        return t.split('Meals')[0]; })).size === tips.length, tips.join(' | '));
+      ok('no cell says 12 PM', !tips.some(function (t) { return /12 PM/.test(t); }), 'none');
+
+      say('--- earliest / latest on a 4am day ---');
+      var whenV = qa('#whenCards .card').map(function (c) {
+        return c.querySelector('.k').textContent + '=' + c.querySelector('.v').textContent;
+      });
+      var early = whenV.filter(function (x) { return /^Earliest/.test(x); })[0];
+      var late = whenV.filter(function (x) { return /^Latest/.test(x); })[0];
+      ok('earliest is after 4am', /=(1[0-9]|2[0-3]|[4-9]):/.test(early) || /=[4-9]:/.test(early), early);
+      ok('latest is in the night', /AM/.test(late), late);
+      ok('latest beats 7pm', !/=7:/.test(late), late);
+
+      say('--- swipe waste ---');
+      var wasteV = qa('#wasteCards .card').map(function (c) {
+        return c.querySelector('.k').textContent + '=' + c.querySelector('.v').textContent;
+      });
+      ok('added = 20 a week x 27 resets', /Swipes added=540/.test(wasteV.join(',')), wasteV.join(' '));
+      ok('used swipes = 426', /Swipes used=426/.test(wasteV.join(',')), wasteV.join(' '));
+      ok('wasted = added - used', /Swipes wasted=114/.test(wasteV.join(',')), wasteV.join(' '));
+      ok('added is not the sum of reset amounts', !/Swipes added=445/.test(wasteV.join(',')), 'sum was 445');
+      ok('weekly allowance named in caption', /lands on 20 after every reset/.test(q('#wasteCaption').textContent),
+        q('#wasteCaption').textContent.slice(0, 90));
+      var wcap = q('#wasteCaption').textContent;
+      ok('no bogus monthly figure in caption', !/a month you paid/.test(wcap), wcap.slice(0, 60));
+      ok('weekly rate in caption agrees with the card', new RegExp(
+        (wasteV.join(',').match(/Wasted per week=([\d.]+)/) || [, '0'])[1].replace('.', '\\.') +
+        ' swipes a week').test(wcap), 'cross-checked against the card');
+
+      /* the money: 4,377 a semester at 20/week, and what it means per swipe */
+      var costK = qa('#costCard .costcell .k').map(function (n) { return n.textContent; });
+      var costV = qa('#costCard .costcell .v').map(function (n) { return n.textContent; });
+      check('cost cells rendered', costK.length, '4');
+      check('semester price', costV[0], '$4,377.00');
+      check('cost per full swipe', costV[1], '$13.68');
+      // base price grossed up by the share actually eaten: 13.68 / (426/540)
+      check('cost per swipe used', costV[2], '$17.34');
+      ok('premium is the wasted share, not cost/used', /27% on the base price/.test(
+        qa('#costCard .costcell').map(function (c) { return c.textContent; }).join(' ')), '28%');
+      ok('used share named in cost caption', /ate 79% of what you were given/.test(q('#costCaption').textContent),
+        q('#costCaption').textContent.match(/ate \d+%[^;]+/)[0]);
+      ok('cost caption no longer claims you beat the maths', !/beat the maths/.test(q('#costCaption').textContent),
+        'reworded');
+      check('dollars wasted', costV[3], '$1,559');
+      ok('per-swipe price is semester/320', /is a flat price/.test(q('#costCard .sub').textContent),
+        q('#costCard .sub').textContent.slice(0, 60));
+      check('used + lost segments', qa('#costCard svg.costbar rect').length, '3');
+      check('lost segment highlighted', qa('#costCard .lost').length, '2');
+      ok('bar labels add up to the swipes', /426 used/.test(q('#costCard').textContent) &&
+        /114 expired/.test(q('#costCard').textContent), 'both');
+      ok('cost caption names the money', /\$1,559 of a \$4,377 semester/.test(q('#costCaption').textContent),
+        q('#costCaption').textContent.slice(0, 70));
+
+      /* where the data comes from */
+      check('get-the-file steps', qa('#howGet .steps li').length, '3');
+      ok('starts at 20 Weekly Meals', /20 Weekly Meals/.test(q('#howGet').textContent), 'named');
+      ok('names View More', /View More/.test(q('#howGet').textContent), 'named');
+      ok('names View Statement', /View Statement/.test(q('#howGet').textContent), 'named');
+      ok('names the CSV download', /Download the\s*CSV|CSV/.test(q('#howGet').textContent), 'named');
+      ok('steps in order', /20 Weekly Meals[\s\S]*View More[\s\S]*View Statement[\s\S]*CSV/.test(
+        q('#howGet ol.steps').textContent), 'correct order');
+      ok('linked to mycard', /mycard\.brown\.edu/.test(q('#howGet a').getAttribute('href')), 'linked');
+      ok('steps are in a real list', q('#howGet ol.steps').children.length === 3, 'ol > 3 li');
+      ok('how-to text no longer claims balance is ignored', !/Balance<\/code> is ignored/.test(
+        document.documentElement.innerHTML), 'copy fixed');
+
+      /* recap is hidden but still copyable */
+      var su = q('#summary'), sr = su.getBoundingClientRect();
+      ok('recap not visible', sr.height <= 2 && sr.width <= 2, Math.round(sr.width) + 'x' + Math.round(sr.height));
+      ok('recap still has text to copy', su.textContent.length > 120, su.textContent.length + ' chars');
+      ok('recap marked decorative', su.getAttribute('aria-hidden') === 'true', su.getAttribute('aria-hidden'));
+      check('copy + start over both kept', qa('#outroRow .btn').length, '2');
+
+      /* the 4am prefixes are gone from the when cards */
+      ok('no 4am chatter on when cards', !/4am/.test(q('#whenCards').textContent),
+        (q('#whenCards').textContent.match(/4am/g) || []).length + ' hits');
+      ok('earliest card keeps its date', /[A-Z][a-z]+ \d{1,2}, \d{4}/.test(
+        qa('#whenCards .card').filter(function (c) { return /Earliest/.test(c.textContent); })[0].textContent),
+        'date present');
+      ok('wasted per week is a decimal', /Wasted per week=\d\.\d/.test(wasteV.join(',')), wasteV.join(' '));
+      check('waste cards rendered', q('#wasteCards').children.length, '4');
+      check('per-day bars', qa('#perDayCard rect.bar').length, '5');
+      var pdSvg = q('#perDayCard svg');
+      var vb = pdSvg.getAttribute('viewBox').split(' ').map(Number);
+      var pdr = qa('#perDayCard rect.bar').map(function (r) {
+        return { x: +r.getAttribute('x'), y: +r.getAttribute('y'),
+                 w: +r.getAttribute('width'), h: +r.getAttribute('height') };
+      });
+      ok('per-day bars inside viewBox', pdr.every(function (r) {
+        return r.x >= 0 && r.y >= 0 && r.x + r.w <= vb[2] + .5 && r.y + r.h <= vb[3] + .5;
+      }), pdr.map(function (r) { return Math.round(r.w) + 'x' + Math.round(r.h); }).join(','));
+      // bar heights must be linear in the day counts (10,22,56,77,14)
+      var counts = [10, 22, 56, 77, 14];
+      var scale = pdr.map(function (r, i) { return r.h / counts[i]; });
+      ok('per-day bar heights proportional to counts',
+        Math.max.apply(null, scale) - Math.min.apply(null, scale) < 0.4,
+        scale.map(function (v) { return v.toFixed(2); }).join(','));
+      ok('zero-day bar is shortest but non-zero', pdr[0].h > 0 && pdr[0].h === Math.min.apply(null, pdr.map(function (r) { return r.h; })),
+        'h=' + Math.round(pdr[0].h));
+      ok('per-day value labels above bars', qa('#perDayCard text[font-weight="700"]').length, '5');
+      var buckets = qa('#perDayCard text.axis.mid').map(function (n) { return n.textContent; });
+      ok('per-day buckets labelled 0..4+', /0 meals/.test(buckets.join(',')) && /4\+ meals/.test(buckets.join(',')),
+        buckets.filter(function (x) { return /meals?$/.test(x); }).join(','));
+      var dayLabels = ['0', '1', '2', '3', '4+'];
+      var dayCounts = qa('#perDayCard rect.bar').map(function (r) {
+        return parseInt(r.getAttribute('height') > 0 ? 1 : 0, 10);
+      });
+      ok('zero-swipe days counted', qa('#perDayCard text.axis.mid').some(function (n) {
+        return n.textContent !== dayLabels[0] && /^[1-9]/.test(n.textContent);
+      }), 'non-zero labels drawn');
+      ok('waste section in summary', /wasted/.test(q('#summary').textContent), 'present');
+      ok('per-day line in summary', /Days by meals/.test(q('#summary').textContent), 'present');
+
+      say('--- flow legend hover ---');
+      var legItems = qa('#flowCard .leg div');
+      check('legend items focusable', legItems.filter(function (n) {
+        return n.getAttribute('tabindex') === '0'; }).length, '5');
+      var joLeg = legItems[1];
+      var joTip = hoverTip(joLeg, .5, .5);
+      ok("legend hover names the hall", /Jo/.test(joTip), joTip);
+      ok('legend hover is not 0%', !/=\s*0%|0%/.test(joTip), joTip);
+      ok('legend hover has meals', /Meals\d/.test(joTip.replace(/\s/g, '')), joTip);
+      say('--- geometry (no NaN, in-range, correctly stacked) ---');
+      var svgBads = [];
+      qa('#report svg').forEach(function (svg) {
+        qa('path,rect,circle,line,text', svg).forEach(function (n) {
+          ['d', 'x', 'y', 'x1', 'y1', 'x2', 'y2', 'cx', 'cy', 'height', 'width', 'r']
+            .forEach(function (a) {
+              var v = n.getAttribute && n.getAttribute(a);
+              if (v && /NaN|Infinity|undefined/.test(v)) svgBads.push(n.tagName + '.' + a + '=' + v);
+            });
+        });
+      });
+      check('no NaN/Infinity coords', svgBads.length, '0');
+      if (svgBads.length) say('   offenders: ' + svgBads.slice(0, 5).join(', '));
+
+      // flow chart: band points must sit inside the plot box (y 24..394), and in
+      // share mode the stack must reach the 100% ceiling at y == 24 (m.t)
+      var flowPaths = qa('#flowCard path');
+      var ys = [], touchesTop = 0;
+      flowPaths.forEach(function (p) {
+        var d = p.getAttribute('d');
+        ok('band path closed', /Z\s*$/.test(d), 'yes');
+        var nums = (d.match(/-?\d+(\.\d+)?/g) || []).map(Number);
+        var bandYs = nums.filter(function (_, i) { return i % 2; });
+        bandYs.forEach(function (v) { ys.push(v); });
+        if (Math.min.apply(null, bandYs) < 26) touchesTop++;
+      });
+      ok('flow ys inside plot box', Math.min.apply(null, ys) >= 23 && Math.max.apply(null, ys) <= 395,
+        'min=' + Math.min.apply(null, ys).toFixed(1) + ' max=' + Math.max.apply(null, ys).toFixed(1));
+      check('one band reaches the 100% ceiling', touchesTop, '1');
+
+      // hour chart: tallest bar should fill the plot height (ih = 270)
+      var bars = qa('#hourChartCard rect.bar').map(function (r) { return +r.getAttribute('height'); });
+      check('hour bars found', bars.length, '24');
+      ok('tallest hour bar fills plot height', Math.abs(Math.max.apply(null, bars) - 270) <= 1,
+        'tallest=' + Math.max.apply(null, bars) + ' (expect ~270)');
+      ok('empty hours draw ~0', Math.min.apply(null, bars) <= 2, 'min=' + Math.min.apply(null, bars));
+
+      // heatmap opacity must be a real 0..1 value
+      var ops = qa('#heatCard rect').map(function (r) { return +r.getAttribute('fill-opacity'); });
+      ok('heatmap opacities in range', ops.every(function (o) { return o >= 0 && o <= 1; }),
+        ops.length + ' cells');
+      ok('heatmap has both lit and dark cells', Math.max.apply(null, ops) > 0.9 &&
+        Math.min.apply(null, ops) < 0.06, 'range ok');
+
+      // layout: nothing should overflow its container horizontally
+      var vw = document.documentElement.clientWidth;
+      // measured on the app's own containers: harness <pre> output must not count
+      var appScrollW = Math.max(q('#report').scrollWidth, q('#intro').scrollWidth);
+      ok('no page-level horizontal overflow', appScrollW <= vw + 1, 'appScrollWidth=' + appScrollW + ' vw=' + vw);
+      var over = qa('#report .screen, #report .chart-card, #report .board, #report .break-grid, #report .shift')
+        .filter(function (n) { return n.scrollWidth > n.clientWidth + 1; })
+        .map(function (n) { return (n.id || n.className) + ' ' + n.scrollWidth + '>' + n.clientWidth; });
+      check('no container overflow', over.length, '0');
+      if (over.length) say('   overflowing: ' + over.slice(0, 4).join(', '));
+      var tiny = qa('#report .mega, #report .big, #report .card .v')
+        .filter(function (n) { return n.scrollWidth > n.clientWidth + 1; });
+      check('headings fit their box', tiny.length, '0');
+      var off = qa('#report svg').filter(function (s) {
+        var r = s.getBoundingClientRect();
+        return r.width > 0 && (r.right > vw + 1 || r.left < -1);
+      });
+      check('svg within viewport', off.length, '0');
+
+      var arcs = qa('#daypartCard path');
+      check('donut arcs', arcs.length, '4');
+      ok('donut arcs have arc commands', arcs.every(function (p) { return /A/.test(p.getAttribute('d')); }), 'yes');
+
+      // the count-up is rAF driven; make sure the real number always lands
+      return waitFor(function () { return q('#totalSwipes').textContent === '426'; }, 'count-up settle', 240)
+        .then(function () { say('PASS  count-up settles on 426'); })
+        .catch(function () { ok('count-up settles', false, 'stuck at ' + q('#totalSwipes').textContent); });
+    })
+    .then(function () {
+      q('#flowToggle').children[1].click();
+      return waitFor(function () { return q('#flowToggle').children[1].classList.contains('on') &&
+        /Swipes per month/.test(q('#flowCard').textContent); }, 'count mode');
+    })
+    .then(function () {
+      say('--- toggle to count mode ---');
+      check('flow still has bands', qa('#flowCard path').length, '5');
+      var cYs = [];
+      qa('#flowCard path').forEach(function (p) {
+        var nums = (p.getAttribute('d').match(/-?\d+(\.\d+)?/g) || []).map(Number);
+        nums.filter(function (_, i) { return i % 2; }).forEach(function (v) { cYs.push(v); });
+      });
+      ok('count mode reaches its peak ceiling', Math.min.apply(null, cYs) < 26,
+        'minY=' + Math.min.apply(null, cYs).toFixed(1));
+      ok('count mode ys in range', Math.max.apply(null, cYs) <= 395, 'maxY=' + Math.max.apply(null, cYs).toFixed(1));
+      ok('no NaN after toggle', reportText().indexOf('NaN') < 0, 'clean');
+
+      q('#flowToggle').children[2].click();
+      return waitFor(function () { return q('#flowToggle').children[2].classList.contains('on') &&
+        /week/.test(q('#flowCard').textContent); }, 'week mode');
+    })
+    .then(function () {
+      say('--- toggle to week mode ---');
+      check('week mode has bands', qa('#flowCard path').length, '5');
+      var wYs = [];
+      qa('#flowCard path').forEach(function (p) {
+        var nums = (p.getAttribute('d').match(/-?\d+(\.\d+)?/g) || []).map(Number);
+        nums.filter(function (_, i) { return i % 2; }).forEach(function (v) { wYs.push(v); });
+      });
+      ok('week mode ys in range', Math.max.apply(null, wYs) <= 395, 'maxY=' + Math.max.apply(null, wYs).toFixed(1));
+      ok('week mode has no NaN', reportText().indexOf('NaN') < 0, 'clean');
+      var wLabels = qa('#flowCard text.axis.mid').map(function (n) { return n.textContent; });
+      ok('week labels are short', wLabels.every(function (l) { return l.length <= 6; }),
+        wLabels.slice(0, 4).join(','));
+      ok('week mode title', /week/i.test(q('#flowCard h3').textContent), q('#flowCard h3').textContent);
+
+      q('#againBtn').click();
+      q('#demoBtn').click();
+      return waitFor(function () {
+        return q('#report').hidden === false && q('#summary').textContent.length > 100;
+      }, 'demo render');
+    })
+    .then(function () {
+      say('--- demo data ---');
+      ok('demo rendered', q('#report').hidden === false, 'yes');
+      ok('demo summary formatted', /\d+ meals across \d+ days/.test(q('#summary').textContent), 'yes');
+      ok('demo flow has bands', qa('#flowCard path').length >= 3, qa('#flowCard path').length + ' bands');
+      ok('demo no NaN', reportText().indexOf('NaN') < 0, 'clean');
+
+      q('#againBtn').click();
+      return fetchCSV(CSVS[0]).then(function (t) {
+        dropFiles([t]);
+        return phase('single statement (one month)', [t]);
+      });
+    })
+    .then(function () {
+      say('--- single-month data ---');
+      ok('rendered', q('#report').hidden === false, 'yes');
+      return waitFor(function () { return q('#totalSwipes').textContent === '60'; }, 'count-up settle', 240)
+        .then(function () { say('PASS  single-file total settles on 60'); })
+        .catch(function () { ok('single-file total', false, 'got ' + q('#totalSwipes').textContent); });
+    })
+    .then(function () {
+      ok('monthly fallback bars', qa('#flowCard rect.bar').length >= 1, qa('#flowCard rect.bar').length + ' bars');
+      ok('no NaN', reportText().indexOf('NaN') < 0, 'clean');
+      check('shift panel hidden for 1 month', q('#shiftPanel').children.length, '0');
+      check('hour chart still 24 bars', qa('#hourChartCard rect.bar').length, '24');
+      ok('one-month note shown', /One month of data/.test(q('#flowHeadline').textContent), q('#flowHeadline').textContent);
+
+      // drop a garbage file: must warn, not crash
+      q('#againBtn').click();
+      dropFiles([{ name: 'notes.txt', text: 'hello\nworld\n' }]);
+      return waitFor(function () { return /don.t look|No swipes/i.test(q('#loadMsg').textContent); }, 'garbage handling')
+        .catch(function () { return 'timeout'; });
+    })
+    .then(function (v) {
+      say('--- garbage input ---');
+      ok('bad file handled gracefully', v === 'timeout' || /don.t look|No swipes/i.test(q('#loadMsg').textContent),
+        JSON.stringify(q('#loadMsg').textContent));
+      ok('report stayed hidden on bad input', q('#report').hidden === true, 'yes');
+    })
+    .catch(function (e) {
+      fails++; say('FAIL  harness threw: ' + (e && e.stack || e));
+    })
+    .then(function () {
+      say('');
+      say(fails === 0 ? 'ALL PASS' : fails + ' FAILURE(S)');
+      flush();
+    });
+})();
+</script>
+</body>
+</html>
